@@ -141,8 +141,7 @@ impl AdMode {
             Ok("fast") => Self::Fast,
             Ok("rate") => Self::Rate,
             Ok("off") => Self::Off,
-            Ok("silent") => Self::Silent,
-            _ => Self::Fast,
+            _ => Self::Silent,
         }
     }
 }
@@ -150,15 +149,11 @@ impl AdMode {
 fn init_script(mode: AdMode) -> String {
     let mut js = String::from(BASE_JS);
     match mode {
-        AdMode::Fast => {
+        AdMode::Silent | AdMode::Fast | AdMode::Rate => {
             js.push_str(AD_SEEK_JS);
             js.push_str(AD_GUARD_JS);
         }
-        AdMode::Rate => {
-            js.push_str(AD_RATE_JS);
-            js.push_str(AD_GUARD_JS);
-        }
-        _ => {}
+        AdMode::Off => {}
     }
     js
 }

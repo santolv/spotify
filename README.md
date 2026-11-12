@@ -9,11 +9,11 @@ no la app de escritorio de Spotify y no automatiza ningún navegador.
 - Carga `https://open.spotify.com` en una ventana propia, sin barra de direcciones.
 - Perfil persistente: la sesión de Spotify se mantiene entre arranques
   (`%LOCALAPPDATA%\SpotifyRust\webview2`).
-- **Anuncios inaudibles sin romper la cola**: por defecto el audio real del
-  anuncio se carga (con su duración auténtica), pero se silencia al instante y
-  se salta al final del archivo. El reproductor recibe un `ended` en su posición
-  real, así que la cola no se desajusta y no se oye nada. No requiere
-  extensiones de Chrome ni procesos extra.
+- **Protección máxima de anuncios (por defecto)**: bloquea peticiones de
+  anuncios con respuesta `403` y sustituye el audio de anuncio por un WAV mudo
+  de 0,3 s, además de saltar al final del archivo de anuncio. Los anuncios no
+  se oyen y terminan casi al instante. No requiere extensiones de Chrome ni
+  procesos extra.
 - Tema oscuro, autoplay permitido, sin menús ni atajos de navegador.
 - Los popups (incluido el login OAuth) se cargan dentro de la misma ventana.
 - Una sola instancia. Si ya está abierto, avisa en vez de corromper el perfil.
@@ -21,9 +21,10 @@ no la app de escritorio de Spotify y no automatiza ningún navegador.
 
 ## Reglas de bloqueo
 
-En el modo por defecto (`fast`) las reglas 403 **no se aplican**: bloquear la
-decisión de anuncios o sus beacons provoca errores que desajustan la cola. Solo
-se actúa sobre el audio. La tabla siguiente describe el modo `silent`.
+Por defecto (modo `silent`) se bloquean las peticiones de anuncios con
+respuesta `403` y el audio de anuncio se sustituye por un WAV mudo de 0,3 s.
+Esto es la "protección máxima": Spotify no recibe respuesta de sus servidores
+de anuncios y el reproductor no oye nada.
 
 Por defecto se bloquean:
 
@@ -58,13 +59,17 @@ La variable `SPOTIFYRUST_AD_MODE` elige el comportamiento:
 
 | Modo | Comportamiento |
 |---|---|
-| `fast` (por defecto) | Carga el MP3 real, lo silencia y salta al final: termina en ~0,3 s con la duración auténtica. Sin bloqueos 403. |
-| `rate` | Silencia y acelera a 16×: ~1,3 s por anuncio, con la línea de tiempo avanzando. |
-| `silent` | Heredado: responde al audio con un WAV mudo de 0,3 s y aplica las reglas 403. Puede desajustar la cola. |
-| `off` | Diagnóstico: no toca los anuncios. |
+| `silent` (por defecto) | **Protección máxima**: bloquea reglas de anuncios con 403, sustituye audio por WAV mudo de 0,3 s y salta al final del archivo. Los anuncios no se oyen. **Puede provocar saltos de canciones y audio mudo en las pistas siguientes** (Spotify detecta la manipulación). |
+| `fast` | Carga el MP3 real, lo silencia y salta al final. No aplica bloqueos 403. Menos agresivo, pero aún puede causar saltos. |
+| `rate` | Silencia y acelera a 16×: ~1,3 s por anuncio. Tampoco aplica 403. |
+| `off` | Diagnóstico: no toca los anuncios. Se oyen normalmente. |
 
 ```powershell
-$env:SPOTIFYRUST_AD_MODE = "rate"
+# Modo por defecto (sin variable): protección máxima
+.\target\release\spotifyrust.exe
+
+# Para probar sin bloqueo (si hay saltos o audio mudo):
+$env:SPOTIFYRUST_AD_MODE = "off"
 .\target\release\spotifyrust.exe
 ```
 
@@ -107,9 +112,15 @@ Comprobado con una cuenta free real y el reproductor en marcha:
 
 ## Limitaciones
 
+**Advertencia importante**: bloquear anuncios en el Web Player de Spotify puede
+provocar que el reproductor salte 5 o más canciones o deje el audio mudo en las
+pistas siguientes (tras el anuncio). Esto es porque los servidores de Spotify
+detectan que el anuncio no se reprodujo realmente y castigan la sesión. Si esto
+sucede, usa `SPOTIFYRUST_AD_MODE=off` para desactivar el bloqueo.
+
 - Si Spotify cambia el host del audio publicitario, hay que añadirlo a la regex
   `AD` de `src/main.rs` (scripts de anuncios) y a `is_ad_audio()` en
-  `src/adblock.rs` (log y modo `silent`).
+  `src/adblock.rs` (modo `silent`).
 - No es la app oficial ni está afiliado a Spotify.
 - El inicio de sesión con email/contraseña funciona dentro de la app. Los
   botones de Google/Facebook/Apple abren un popup OAuth que se redirige a la
